@@ -1,70 +1,16 @@
 const nodemailer = require('nodemailer');
 
-// Create transporters
-const primaryTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false
-  },
-});
+module.exports = async (req, res) => {
+  // Add CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
 
-// Gmail fallback transporter (only if configured)
-const gmailTransporter = process.env.GMAIL_USER && process.env.GMAIL_USER !== 'your-email@gmail.com' 
-  ? nodemailer.createTransport({
-      host: process.env.GMAIL_HOST,
-      port: parseInt(process.env.GMAIL_PORT),
-      secure: process.env.GMAIL_SECURE === 'true',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS,
-      },
-    })
-  : null;
-
-// Email sending function with fallback
-async function sendEmailWithFallback(mailOptions) {
-  const results = [];
-  
-  // Try primary transporter first
-  try {
-    console.log('🔵 Trying primary SMTP...');
-    const result = await primaryTransporter.sendMail(mailOptions);
-    console.log('✅ Primary SMTP successful:', result.messageId);
-    results.push({ service: 'primary', success: true, messageId: result.messageId });
-  } catch (error) {
-    console.log('❌ Primary SMTP failed:', error.message);
-    results.push({ service: 'primary', success: false, error: error.message });
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
-  
-  // Try Gmail fallback if available
-  if (gmailTransporter) {
-    try {
-      console.log('🔵 Trying Gmail fallback...');
-      const gmailOptions = { ...mailOptions };
-      if (gmailOptions.from === process.env.SMTP_USER) {
-        gmailOptions.from = process.env.GMAIL_USER;
-      }
-      
-      const result = await gmailTransporter.sendMail(gmailOptions);
-      console.log('✅ Gmail fallback successful:', result.messageId);
-      results.push({ service: 'gmail', success: true, messageId: result.messageId });
-    } catch (error) {
-      console.log('❌ Gmail fallback failed:', error.message);
-      results.push({ service: 'gmail', success: false, error: error.message });
-    }
-  }
-  
-  return results;
-}
 
-module.exports = async function handler(req, res) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ 
       success: false, 
@@ -108,6 +54,20 @@ module.exports = async function handler(req, res) {
       interior: 'Luxury Interior Fit-out',
       consultation: 'Project Consultation',
     };
+
+    // Create transporter
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false
+      },
+    });
 
     // Send notification email
     const mailOptions = {
@@ -161,81 +121,70 @@ module.exports = async function handler(req, res) {
       `,
     };
 
-    const results = await sendEmailWithFallback(mailOptions);
+    const result = await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent successfully:', result.messageId);
     
-    // Send confirmation email to user (only if primary worked)
-    if (results.some(r => r.success)) {
-      try {
-        const confirmationOptions = {
-          from: process.env.SMTP_USER,
-          to: email,
-          subject: 'Thank you for contacting IU Developers',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: #1B3558; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">IU Developers</h1>
-                <p style="color: #C9A84C; margin: 5px 0 0 0;">Rwanda's Premier Development Agency</p>
+    // Send confirmation email to user
+    try {
+      const confirmationOptions = {
+        from: process.env.SMTP_USER,
+        to: email,
+        subject: 'Thank you for contacting IU Developers',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #1B3558; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">IU Developers</h1>
+              <p style="color: #C9A84C; margin: 5px 0 0 0;">Rwanda's Premier Development Agency</p>
+            </div>
+            
+            <div style="background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px;">
+              <h2 style="color: #1B3558; margin-top: 0;">Thank You for Your Inquiry!</h2>
+              
+              <p style="color: #333; line-height: 1.6;">
+                Dear ${name},
+              </p>
+              
+              <p style="color: #333; line-height: 1.6;">
+                Thank you for reaching out to IU Developers regarding your ${projectTypeMap[projectType] || projectType} project. We have received your inquiry and are excited about the opportunity to work with you.
+              </p>
+              
+              <p style="color: #333; line-height: 1.6;">
+                One of our lead consultants will review your project details and contact you within 24-48 hours to discuss your vision in more detail.
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="tel:+250783247298" style="display: inline-block; background: #C9A84C; color: #1B3558; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                  Call Us
+                </a>
               </div>
               
-              <div style="background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px;">
-                <h2 style="color: #1B3558; margin-top: 0;">Thank You for Your Inquiry!</h2>
-                
-                <p style="color: #333; line-height: 1.6;">
-                  Dear ${name},
-                </p>
-                
-                <p style="color: #333; line-height: 1.6;">
-                  Thank you for reaching out to IU Developers regarding your ${projectTypeMap[projectType] || projectType} project. We have received your inquiry and are excited about the opportunity to work with you.
-                </p>
-                
-                <p style="color: #333; line-height: 1.6;">
-                  One of our lead consultants will review your project details and contact you within 24-48 hours to discuss your vision in more detail.
-                </p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="tel:+250783247298" style="display: inline-block; background: #C9A84C; color: #1B3558; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                    Call Us
-                  </a>
-                </div>
-                
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #666; font-size: 14px;">
-                  <p><strong>IU Developers</strong></p>
-                  <p>Kibagabaga, Gasabo, Kigali</p>
-                  <p>+250 783 247 298 | info@iudevelopers.com</p>
-                </div>
+              <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #666; font-size: 14px;">
+                <p><strong>IU Developers</strong></p>
+                <p>Kibagabaga, Gasabo, Kigali</p>
+                <p>+250 783 247 298 | info@iudevelopers.com</p>
               </div>
             </div>
-          `,
-        };
+          </div>
+        `,
+      };
 
-        await sendEmailWithFallback(confirmationOptions);
-        console.log('✅ Confirmation email sent to', email);
-      } catch (error) {
-        console.log('❌ Confirmation email failed:', error.message);
-      }
+      await transporter.sendMail(confirmationOptions);
+      console.log('✅ Confirmation email sent to', email);
+    } catch (error) {
+      console.log('❌ Confirmation email failed:', error.message);
     }
     
-    console.log('📊 Email Results:', results);
-    
-    if (results.some(r => r.success)) {
-      res.json({
-        success: true,
-        message: 'Email sent successfully',
-        results: results.filter(r => r.success)
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        error: 'All email services failed',
-        results: results
-      });
-    }
+    res.json({
+      success: true,
+      message: 'Email sent successfully',
+      messageId: result.messageId
+    });
     
   } catch (error) {
-    console.error('❌ Error in email endpoint:', error);
+    console.error('❌ Error sending email:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to send email. Please try again later.'
     });
   }
-}
+};
