@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { MapPin, Phone, Mail, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 const contactSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -19,6 +20,7 @@ type ContactFormValues = z.infer<typeof contactSchema>;
 export function Contact() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const { toast } = useToast();
 
   const {
     register,
@@ -31,12 +33,43 @@ export function Contact() {
 
   const onSubmit = async (data: ContactFormValues) => {
     setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    console.log("Form submitted:", data);
-    setIsSubmitting(false);
-    setIsSuccess(true);
-    reset();
-    setTimeout(() => setIsSuccess(false), 5000);
+    
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setIsSuccess(true);
+        reset();
+        toast({
+          title: "Message Sent Successfully!",
+          description: "Thank you for your inquiry. We'll contact you soon.",
+        });
+        setTimeout(() => setIsSuccess(false), 5000);
+      } else {
+        toast({
+          title: "Failed to Send Message",
+          description: result.error || 'Please try again later.',
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast({
+        title: "Network Error",
+        description: "Unable to connect to the server. Please check your connection and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const inputClass = "w-full h-12 px-4 rounded-md border border-[#1B3558]/20 bg-white text-[#1B3558] placeholder:text-[#1B3558]/40 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/40 focus:border-[#C9A84C] transition-all duration-200 text-sm";
