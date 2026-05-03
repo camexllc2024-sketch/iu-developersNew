@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+const nodemailer = require('nodemailer');
 
 // Create transporters
 const primaryTransporter = nodemailer.createTransport({
@@ -63,7 +63,7 @@ async function sendEmailWithFallback(mailOptions) {
   return results;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ 
