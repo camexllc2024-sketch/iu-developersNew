@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "IU Developers"
+version = "1.0.0"
+id = "artifacts/iu-developers"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21505
+
+[services.development]
+run = "pnpm --filter @workspace/iu-developers run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/iu-developers", "run", "build" ]
+publicDir = "artifacts/iu-developers/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21505"
+BASE_PATH = "/"

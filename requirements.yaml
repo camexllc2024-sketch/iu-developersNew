@@ -1,0 +1,9 @@
+packages:
+  "framer-motion": "Scroll-triggered and element animations for premium feel"
+  "embla-carousel-autoplay": "Auto-playing testimonial carousel"
+  "clsx": "Utility for constructing className strings"
+  "tailwind-merge": "Utility for merging tailwind classes"
+
+notes:
+  - This is a static marketing site; form submissions are simulated with a success state.
+  - Using provided local images from the public directory.
