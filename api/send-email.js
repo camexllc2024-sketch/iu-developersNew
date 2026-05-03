@@ -55,19 +55,39 @@ export default async function handler(req, res) {
       consultation: 'Project Consultation',
     };
 
-    // Create transporter
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false
-      },
-    });
+    // Create transporter with multiple port attempts
+    let transporter;
+    const ports = [587, 465, 2525, 25]; // Try alternative ports first
+    
+    for (const port of ports) {
+      try {
+        transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: port,
+          secure: port === 465, // SSL for port 465
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+          tls: {
+            rejectUnauthorized: false
+          },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 10000,
+        });
+        
+        // Test connection
+        await transporter.verify();
+        console.log(`✅ Connected to SMTP on port ${port}`);
+        break;
+      } catch (error) {
+        console.log(`❌ Port ${port} failed: ${error.message}`);
+        if (port === ports[ports.length - 1]) {
+          throw error; // Re-throw if all ports failed
+        }
+      }
+    }
 
     // Send notification email
     const mailOptions = {
