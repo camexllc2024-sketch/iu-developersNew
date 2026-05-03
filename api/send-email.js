@@ -187,4 +187,4 @@ export default async function handler(req, res) {
       error: 'Failed to send email. Please try again later.'
     });
   }
-};
+}
